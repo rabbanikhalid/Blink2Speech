@@ -84,10 +84,10 @@ QUICK_COMMANDS: Dict[str, str] = {
 class Thresholds:
     """Container for blink classification thresholds and gap timings."""
 
-    # IMPROVED DEFAULTS - Wider gap between short and long
-    short_blink_max: float = 0.20  # Anything under 0.20s = dot
-    long_blink_min: float = 0.50   # Anything over 0.50s = dash
-    # This gives 0.30s buffer zone between dot and dash!
+    # VERY GENEROUS DEFAULTS - almost anything quick is a dot
+    short_blink_max: float = 0.30  # Anything under 0.30s = DOT
+    long_blink_min: float = 0.50   # Anything over 0.50s = DASH
+    # 0.20s buffer zone (0.30-0.50)
     
     symbol_gap: float = 0.5
     letter_gap: float = 1.5
@@ -105,7 +105,7 @@ class Thresholds:
     @classmethod
     def from_dict(cls, payload: Dict[str, float]) -> "Thresholds":
         return cls(
-            short_blink_max=payload.get("short_blink_max", 0.20),
+            short_blink_max=payload.get("short_blink_max", 0.30),
             long_blink_min=payload.get("long_blink_min", 0.50),
             symbol_gap=payload.get("symbol_gap", 0.5),
             letter_gap=payload.get("letter_gap", 1.5),

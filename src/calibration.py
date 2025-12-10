@@ -22,7 +22,7 @@ class CalibrationProfile:
     def add_sample(self, duration: float) -> None:
         self.samples.append(CalibrationSample(duration))
 
-    def is_ready(self, min_samples: int = 8) -> bool:  # INCREASED from 5 to 8
+    def is_ready(self, min_samples: int = 8) -> bool:
         return len(self.samples) >= min_samples
 
     def compute_thresholds(self) -> Thresholds:
@@ -41,15 +41,19 @@ class CalibrationProfile:
             return self.thresholds
             
         avg = mean(durations)
+        min_dur = min(durations)
+        max_dur = max(durations)
         
-        # IMPROVED THRESHOLD CALCULATION
-        # Make the gap between short and long MUCH wider
-        short_threshold = max(0.08, avg * 0.65)  # Reduced multiplier
-        long_threshold = max(short_threshold + 0.25, avg * 1.35)  # BIGGER gap + higher multiplier
+        # IMPROVED: Use actual min/max from samples with safety margins
+        # Short threshold: 80% of shortest blink (leaves room for even faster blinks)
+        short_threshold = max(0.08, min_dur * 0.8)
         
-        # Ensure minimum separation between thresholds
-        if long_threshold - short_threshold < 0.25:
-            long_threshold = short_threshold + 0.25
+        # Long threshold: 120% of average OR 80% of longest, whichever is higher
+        long_threshold = max(avg * 1.2, max_dur * 0.8, short_threshold + 0.2)
+        
+        # Ensure minimum separation
+        if long_threshold - short_threshold < 0.2:
+            long_threshold = short_threshold + 0.2
         
         symbol_gap = max(0.4, avg * 1.5)
         letter_gap = symbol_gap * 2.5
@@ -73,8 +77,8 @@ class CalibrationManager:
         self.profile = CalibrationProfile(thresholds=load_thresholds(storage_path))
 
     def record_blink(self, duration: float) -> Thresholds:
-        # Ignore obviously bad samples (too short or too long)
-        if 0.05 <= duration <= 2.0:
+        # Accept wider range of samples
+        if 0.04 <= duration <= 2.5:
             self.profile.add_sample(duration)
             
         if self.profile.is_ready():

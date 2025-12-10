@@ -1,7 +1,7 @@
 {
-  "short_blink_max": 0.33497526562314306,
-  "long_blink_min": 0.6957178593711433,
-  "symbol_gap": 0.7730198437457148,
-  "letter_gap": 1.9325496093642869,
-  "word_gap": 3.8650992187285738
+  "short_blink_max": 0.08,
+  "long_blink_min": 0.28,
+  "symbol_gap": 0.4,
+  "letter_gap": 1.0,
+  "word_gap": 2.0
 }

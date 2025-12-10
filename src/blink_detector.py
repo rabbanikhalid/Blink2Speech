@@ -13,11 +13,11 @@ from utils import LEFT_EYE_LANDMARKS, RIGHT_EYE_LANDMARKS
 
 @dataclass
 class BlinkDetectorConfig:
-    eye_ar_threshold: float = 0.21  # LOWERED - less sensitive to false positives
-    eye_ar_smooth_factor: float = 0.7  # INCREASED - more smoothing = less jitter
-    min_blink_duration: float = 0.08  # Shorter minimum for quick blinks
+    eye_ar_threshold: float = 0.18  # Higher = more sensitive
+    eye_ar_smooth_factor: float = 0.7  # Lower = faster response (0.5 = 50% new, 50% old)
+    min_blink_duration: float = 0.03  # Very short minimum
     max_blink_duration: float = 3.0
-    debounce_time: float = 0.15  # NEW: Prevent rapid-fire blinks
+    debounce_time: float = 0.08  # Short debounce
 
 
 @dataclass
@@ -43,11 +43,7 @@ class BlinkDetector:
         self.prev_ear: Optional[float] = None
         self.eye_closed = False
         self.blink_start: Optional[float] = None
-        self.last_blink_end: Optional[float] = None  # NEW: For debouncing
-        
-        # NEW: Stability tracking
-        self.ear_history = []
-        self.max_history = 5
+        self.last_blink_end: Optional[float] = None
 
     @staticmethod
     def _eye_aspect_ratio(landmarks: np.ndarray) -> float:
@@ -66,15 +62,6 @@ class BlinkDetector:
         right_eye = coords[RIGHT_EYE_LANDMARKS]
         left_eye = coords[LEFT_EYE_LANDMARKS]
         return right_eye, left_eye
-    
-    def _get_stable_ear(self, current_ear: float) -> float:
-        """Apply temporal smoothing with history buffer."""
-        self.ear_history.append(current_ear)
-        if len(self.ear_history) > self.max_history:
-            self.ear_history.pop(0)
-        
-        # Use median to reduce outlier impact
-        return np.median(self.ear_history)
 
     def process(self, frame, timestamp: float) -> Tuple[Dict[str, float], Optional[BlinkEvent]]:
         """Process a BGR frame and return EAR metrics plus an optional blink event."""
@@ -92,37 +79,34 @@ class BlinkDetector:
             ear_left = self._eye_aspect_ratio(left_eye.astype(np.float32))
             raw_ear = (ear_left + ear_right) / 2.0
             
-            # Apply temporal smoothing
+            # Simple exponential smoothing - very light
             if self.prev_ear is None:
                 smoothed = raw_ear
             else:
                 alpha = self.config.eye_ar_smooth_factor
                 smoothed = alpha * raw_ear + (1 - alpha) * self.prev_ear
             
-            # Additional stability check with median filter
-            stable_ear = self._get_stable_ear(smoothed)
-            
-            self.prev_ear = stable_ear
-            metrics["ear"] = stable_ear
+            self.prev_ear = smoothed
+            metrics["ear"] = smoothed
 
-            # DEBOUNCE CHECK: Don't allow new blink too soon after last one
+            # Check debounce
             if self.last_blink_end is not None:
                 time_since_last = timestamp - self.last_blink_end
                 if time_since_last < self.config.debounce_time:
-                    # Too soon - ignore any state changes
                     return metrics, None
 
-            # Blink state machine
-            if not self.eye_closed and stable_ear < self.config.eye_ar_threshold:
+            # STATE 1: Eye opens -> closes (blink starts)
+            if not self.eye_closed and smoothed < self.config.eye_ar_threshold:
                 self.eye_closed = True
                 self.blink_start = timestamp
                 
-            elif self.eye_closed and stable_ear >= self.config.eye_ar_threshold:
+            # STATE 2: Eye closed -> opens (blink ends)
+            elif self.eye_closed and smoothed >= self.config.eye_ar_threshold:
                 self.eye_closed = False
                 if self.blink_start is not None:
                     duration = timestamp - self.blink_start
                     
-                    # Validate blink duration
+                    # Validate duration
                     if self.config.min_blink_duration <= duration <= self.config.max_blink_duration:
                         blink_event = BlinkEvent(
                             is_blink=True,
@@ -131,11 +115,10 @@ class BlinkDetector:
                             end_time=timestamp,
                             message="Blink detected",
                         )
-                        self.last_blink_end = timestamp  # Record for debouncing
+                        self.last_blink_end = timestamp
                         
                 self.blink_start = None
         else:
-            # No face detected - maintain last known EAR
             metrics["ear"] = self.prev_ear or 0.0
 
         return metrics, blink_event
