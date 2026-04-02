@@ -53,7 +53,7 @@ This system is designed for:
 
 ## 📷 Demo / Preview
 
-![Blink2Speech Demo](Screenshot Demo.png)
+![Blink2Speech Demo](Screenshot_Demo.png)
 
 ---
 
