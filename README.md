@@ -53,7 +53,7 @@ This system is designed for:
 
 ## 📷 Demo / Preview
 
-*(Add screenshots or demo GIF here)*
+![Blink2Speech Demo](Screenshot Demo.png)
 
 ---
 
@@ -77,11 +77,6 @@ python main.py
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to fork the repo and submit a pull request.
-
----
 
 ## 📬 Contact
 
